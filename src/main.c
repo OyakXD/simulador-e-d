@@ -23,10 +23,12 @@ typedef struct {
   } flags;
 } CPU;
 
+// Validação de registrador
 int is_valid_register(uint16_t reg){
     return (reg < NUM_REGISTERS);
 }
 
+// Função que inicia o simulador
 void init_simulator(CPU *cpu) {
     
     // Zeradores
@@ -43,6 +45,7 @@ void init_simulator(CPU *cpu) {
     cpu->flags.overflow = 0;
 }
 
+// Função para carregar o arquivo <endereço>:<conteúdo>
 int load_program(CPU *cpu, const char *filename){
     FILE *file = fopen(filename, "r");
 
@@ -69,6 +72,7 @@ int load_program(CPU *cpu, const char *filename){
     return 1;
 }
 
+// Função para inserir o valor no topo da pilha
 void push(CPU *cpu, uint16_t value) {
     if(cpu->sp < MAX_STACK - 1){
         cpu->sp++;
@@ -78,6 +82,7 @@ void push(CPU *cpu, uint16_t value) {
     }
 }
 
+// Função para retirar ou copiar o valor no topo da pilha
 uint16_t pop(CPU *cpu){
     if(cpu->sp >= 0){
         uint16_t value = cpu->stack[cpu->pc];
@@ -89,6 +94,7 @@ uint16_t pop(CPU *cpu){
     }
 }
 
+// Função de decodificação de instruções
 void execute_instruction(CPU *cpu, uint16_t instruction){
 
     // Decodifica a instrução
@@ -133,6 +139,7 @@ void execute_instruction(CPU *cpu, uint16_t instruction){
     
 }
 
+// Função para buscar e decodificar e executar
 void run_program(CPU *cpu){
     while(cpu->pc < MAX_MEMORY && cpu->memory[cpu->pc] != 0){
         uint16_t instruction = cpu->memory[cpu->pc];
@@ -141,6 +148,7 @@ void run_program(CPU *cpu){
     }
 }
 
+// Função para printar o estado da CPU
 void print_simulator_state(CPU *cpu){
     printf("\nEstado do simulador:\n");
 
