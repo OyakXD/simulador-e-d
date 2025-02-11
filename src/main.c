@@ -25,7 +25,7 @@ typedef struct {
 
 // Validação de registrador
 int is_valid_register(uint16_t reg){
-    return (reg < NUM_REGISTERS);
+    return (reg < NUM_REGISTERS); // Retorna 1 se válido (0-7), 0 se inválido
 }
 
 // Função que inicia o simulador
@@ -72,33 +72,50 @@ int load_program(CPU *cpu, const char *filename){
     return 1;
 }
 
-// Função para inserir o valor no topo da pilha
-void push(CPU *cpu, uint16_t value) {
-    if(cpu->sp < MAX_STACK - 1){
-        cpu->sp++;
-        cpu->stack[cpu->sp] = value;
-    } else {
-        printf("Erro: Pilha cheia\n");
-    }
-}
-
-// Função para retirar ou copiar o valor no topo da pilha
-uint16_t pop(CPU *cpu){
-    if(cpu->sp >= 0){
-        uint16_t value = cpu->stack[cpu->pc];
-        cpu->sp--;
-        return value;
-    } else {
-        printf("Erro: Pilha Vazia\n");
-        return 0;
-    }
-}
 
 // Função de decodificação de instruções
 void execute_instruction(CPU *cpu, uint16_t instruction){
 
-    // Decodifica a instrução
     uint16_t opcode = (instruction >> 12) & 0xF; // Bits 15-12
+
+    printf("Instrução recebida: 0x%04x\n", instruction);
+ 
+    if(opcode == 0){ // Ele pode ser pop ou push
+        
+        uint16_t subop = (instruction >> 8) & 0xF; // Bits 11-8
+        uint16_t rd = (instruction >> 4) & 0x7; // Bits 6-4
+        
+        switch(subop){
+            case 0x0:
+            printf("PUSH R%d\n", rd);
+            if(is_valid_register(rd)){
+                if(cpu->sp < MAX_STACK - 1) {
+                    cpu->stack[++cpu->sp] = cpu->registers[rd];
+                }
+            }
+            break;
+
+            case 0x7:
+            printf("POP R%d\n", rd);
+            if(is_valid_register(rd)){
+                if(cpu->sp >= 0){
+                    cpu->registers[rd] = cpu->stack[cpu->sp--];
+                }
+            }
+            break;
+
+            case 0xF:
+            // ...
+            break;
+
+            default:
+            printf("Suboperação não encontrada");
+            break;
+        }
+        return;
+    }
+
+    // Decodifica a instrução
     uint16_t rd = (instruction >> 8) & 0x7; // Bits 11-9 (0-7)
     uint16_t rm = (instruction >> 4) & 0x7; // Bits 7-5 (0-7)
     uint16_t rn = instruction & 0x7; // Bits 2-0 (0-7)
@@ -125,18 +142,10 @@ void execute_instruction(CPU *cpu, uint16_t instruction){
             cpu->registers[rd] = cpu->registers[rm] - cpu->registers[rn];
             cpu->flags.zero = (cpu->registers[rd] == 0);
             break;
-        case 0x0: // PUSH/POP
-            if((instruction >> 8) & 0x7) { // POP
-                pop(cpu);
-            } else {
-                push(cpu, rd);
-            }
-            break;
         default:
             printf("Instrução não implementada: 0x%04x\n", instruction);
             break;
-    }
-    
+        }
 }
 
 // Função para buscar e decodificar e executar
