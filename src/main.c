@@ -81,16 +81,44 @@ void execute_instruction(CPU *cpu, uint16_t instruction){
     printf("Instrução recebida: 0x%04x\n", instruction);
  
     if(opcode == 0){ // Ele pode ser pop ou push
+
+        uint16_t high_bits = (instruction >> 8) & 0xF; // Bits 11-8
+        uint16_t low_bits = instruction & 0x3; // Bits 1-0
         
+        if(high_bits == 0 && low_bits == 0x3) { // Verifica se bits 11-8 são 0000 e bits 1-0 são 11
+
+            // Instrução CMP
+            uint16_t rm = (instruction >> 3) & 0x7;
+            uint16_t rn = (instruction >> 0) & 0x7;
+
+            printf("CMP R%d, R%d\n", rm, rn);
+
+            uint16_t val1 = cpu->registers[rm];
+            uint16_t val2 = cpu->registers[rn];
+            uint16_t result = val1 - val2;
+
+            cpu->flags.zero = (result == 0);
+            cpu->flags.negative = (result & 0x8000) != 0;
+            cpu->flags.carry = (val1 < val2);
+
+            printf("Comparação: R%d (0x%04x) - R%d (0x%04x) = 0x%04x\n",
+            rm, val1, rn, val2, result);
+            
+            printf("Flags: Z=%d N=%d C=%d\n",
+            cpu->flags.zero, cpu->flags.negative, cpu->flags.carry);
+            return;
+        }
+
+
         uint16_t subop = (instruction >> 8) & 0xF; // Bits 11-8
-        uint16_t rd = (instruction >> 4) & 0x7; // Bits 6-4
+        uint16_t rn = (instruction >> 4) & 0x7; // Bits 6-4
         
         switch(subop){
             case 0x0:
-            printf("PUSH R%d\n", rd);
-            if(is_valid_register(rd)){
+            printf("PUSH R%d\n", rn);
+            if(is_valid_register(rn)){
                 if(cpu->sp < MAX_STACK - 1) {
-                    cpu->stack[++cpu->sp] = cpu->registers[rd];
+                    cpu->stack[cpu->sp--] = cpu->registers[rn];
                 }
             }
             break;
@@ -99,7 +127,7 @@ void execute_instruction(CPU *cpu, uint16_t instruction){
             printf("POP R%d\n", rd);
             if(is_valid_register(rd)){
                 if(cpu->sp >= 0){
-                    cpu->registers[rd] = cpu->stack[cpu->sp--];
+                    cpu->registers[rd] = cpu->stack[++cpu->sp];
                 }
             }
             break;
