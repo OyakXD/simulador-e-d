@@ -59,7 +59,8 @@ int load_program(CPU *cpu, const char *filename){
     char line[50];
     uint16_t address, content;
 
-    memset(cpu->memory, 0, sizeof(cpu->memory));
+    // Preencher com halt
+    memset(cpu->memory, 0xFF, sizeof(cpu->memory));
 
     while(fgets(line, sizeof(line), file)){
 
@@ -129,10 +130,9 @@ void execute_instruction(CPU *cpu, uint16_t instruction){
                             }
                         }
                         break;
-
-                    case 0b11: // CMP
+                    case 0x3:{
                         printf("CMP R%d, R%d\n", rm, rn);
-
+                        
                         uint16_t val1 = cpu->registers[rm];
                         uint16_t val2 = cpu->registers[rn];
                         uint16_t result = val1 - val2;
@@ -147,7 +147,7 @@ void execute_instruction(CPU *cpu, uint16_t instruction){
                         printf("Flags: Z=%d N=%d C=%d\n",
                         cpu->flags.zero, cpu->flags.negative, cpu->flags.carry);
                         break;
-
+                    }
                     default:   // NOP
                         printf("NOP\n");
                         break;
@@ -186,15 +186,6 @@ void execute_instruction(CPU *cpu, uint16_t instruction){
     }
 }
 
-// Função para buscar e decodificar e executar
-void run_program(CPU *cpu){
-    while(cpu->pc < MAX_MEMORY && cpu->memory[cpu->pc] != 0){
-        uint16_t instruction = cpu->memory[cpu->pc];
-        execute_instruction(cpu, instruction);
-        cpu->pc++;
-    }
-}
-
 // Função para printar o estado da CPU
 void print_simulator_state(CPU *cpu){
     printf("\nEstado do simulador:\n");
@@ -207,12 +198,20 @@ void print_simulator_state(CPU *cpu){
     // Imprime o contador do programa
     printf("\nPC: 0x%04x\n", cpu->pc);
 
-    // Imprime a flag zero
-    printf("\nZero flag: %d\n", cpu->flags.zero);
-
     printf("\nPonteiro da pilha (SP): %d\n", cpu->sp);
     if(cpu->sp >= 0){
         printf("Topo da pilha: 0x%04x\n", cpu->stack[cpu->sp]);
+    }
+}
+
+// Função para buscar e decodificar e executar
+void run_program(CPU *cpu){
+    while(cpu->pc < MAX_MEMORY && cpu->memory[cpu->pc / 2] != 0xFFFF){
+        uint16_t instruction = cpu->memory[cpu->pc / 2];
+        execute_instruction(cpu, instruction);
+        print_simulator_state(cpu);
+        cpu->pc += 2;
+        printf("NEXT: 0x%04X\n", cpu->memory[cpu->pc / 2]);
     }
 }
 
@@ -224,10 +223,8 @@ int main() {
     if(!load_program(&cpu, "program.txt")){
         return 1;
     }
-
+    
     run_program(&cpu);
-
-    print_simulator_state(&cpu);
 
     return 0;
 }
