@@ -75,6 +75,24 @@ int load_program(CPU *cpu, const char *filename){
     return 1;
 }
 
+// Função para printar o estado da CPU
+void print_simulator_state(CPU *cpu){
+    printf("\nEstado do simulador:\n");
+
+    // Imprimir os registradores
+    for(int i = 0; i < NUM_REGISTERS; i++){
+        printf("R%d: 0x%04x ", i, cpu->registers[i]);
+    }
+
+    // Imprime o contador do programa
+    printf("\nPC: 0x%04x\n", cpu->pc);
+
+    printf("\nPonteiro da pilha (SP): %d\n", cpu->sp);
+    if(cpu->sp >= 0){
+        printf("Topo da pilha: 0x%04x\n", cpu->stack[cpu->sp]);
+    }
+}
+
 // Função de decodificação de instruções
 void execute_instruction(CPU *cpu, uint16_t instruction){
 
@@ -150,6 +168,7 @@ void execute_instruction(CPU *cpu, uint16_t instruction){
                     }
                     default:   // NOP
                         printf("NOP\n");
+                        print_simulator_state(cpu);
                         break;
                 }
             }
@@ -186,30 +205,12 @@ void execute_instruction(CPU *cpu, uint16_t instruction){
     }
 }
 
-// Função para printar o estado da CPU
-void print_simulator_state(CPU *cpu){
-    printf("\nEstado do simulador:\n");
-
-    // Imprimir os registradores
-    for(int i = 0; i < NUM_REGISTERS; i++){
-        printf("R%d: 0x%04x ", i, cpu->registers[i]);
-    }
-
-    // Imprime o contador do programa
-    printf("\nPC: 0x%04x\n", cpu->pc);
-
-    printf("\nPonteiro da pilha (SP): %d\n", cpu->sp);
-    if(cpu->sp >= 0){
-        printf("Topo da pilha: 0x%04x\n", cpu->stack[cpu->sp]);
-    }
-}
 
 // Função para buscar e decodificar e executar
 void run_program(CPU *cpu){
     while(cpu->pc < MAX_MEMORY && cpu->memory[cpu->pc / 2] != 0xFFFF){
         uint16_t instruction = cpu->memory[cpu->pc / 2];
         execute_instruction(cpu, instruction);
-        print_simulator_state(cpu);
         cpu->pc += 2;
         printf("NEXT: 0x%04X\n", cpu->memory[cpu->pc / 2]);
     }
