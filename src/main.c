@@ -111,15 +111,15 @@ void execute_instruction(CPU *cpu, uint16_t instruction){
             if(use_immediate) {
                 int16_t immediate = ((int16_t) (instruction << 5)) >> 7;
                 switch(instruction & 0x3) {
-                    case 0b00: // JMP
+                    case 0x0: // JMP
                         printf("JMP #%d\n", immediate);
                         cpu->pc += immediate;
                         break;
-                    case 0b01: // JEQ
+                    case 0x1: // JEQ
                         printf("JEQ #%d\n", immediate);
                         if(cpu->flags.zero) cpu->pc += immediate;
                         break;
-                    case 0b10: // JLT
+                    case 0x2: // JLT
                         printf("JLT #%d\n", immediate);
                         if(cpu->flags.carry && !cpu->flags.zero) cpu->pc += immediate;
                         break;
@@ -131,7 +131,7 @@ void execute_instruction(CPU *cpu, uint16_t instruction){
             }
             else {
                 switch(instruction & 0x3) {
-                    case 0b01: // PUSH
+                    case 0x1: // PUSH
                         printf("PUSH R%d\n", rn);
                         if(is_valid_register(rn)){
                             if(cpu->sp >= MAX_STACK) {
@@ -140,7 +140,7 @@ void execute_instruction(CPU *cpu, uint16_t instruction){
                         }
                         break;
 
-                    case 0b10: // POP
+                    case 0x2: // POP
                         printf("POP R%d\n", rd);
                         if(is_valid_register(rd)){
                             if(cpu->sp >= 0){
