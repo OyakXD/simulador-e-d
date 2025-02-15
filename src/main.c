@@ -87,9 +87,59 @@ void print_simulator_state(CPU *cpu){
     // Imprime o contador do programa
     printf("\nPC: 0x%04x\n", cpu->pc);
 
+    printf("Flags: Z=%d N=%d C=%d, Ov=%d\n",
+    cpu->flags.zero, cpu->flags.negative, cpu->flags.carry, cpu->flags.overflow);
+
     printf("\nPonteiro da pilha (SP): %d\n", cpu->sp);
     if(cpu->sp >= 0){
         printf("Topo da pilha: 0x%04x\n", cpu->stack[cpu->sp]);
+    }
+}
+
+void update_flags(CPU *cpu, uint16_t result, uint16_t op1, uint16_t op2, char operation){
+
+    cpu->flags.zero = (result == 0);
+
+    cpu->flags.negative = (result >> 15) & 0x1;
+
+    switch(operation){
+        case '+': // ADD
+            cpu->flags.carry = (result < op1);
+            cpu->flags.overflow = ((op1 ^ result) & (op2 ^ result)) >> 15;
+            break;
+        case '-': // SUB & CMP
+            cpu->flags.carry = (op1 < op2);
+            cpu->flags.overflow = ((op1 ^ op2) & (op1 ^ result)) >> 15;
+            break;
+        
+        case '&':
+        case '|':
+        case '^':
+        case '~':
+            cpu->flags.carry = 0;
+            cpu->flags.overflow = 0;
+            break;
+        
+        case '<': // SHL
+            cpu->flags.carry = (op1 >> 15) & 0x1;
+            cpu->flags.overflow = 0;
+            break;
+        case '>': // SHR
+            cpu->flags.carry = op1 & 0x1;
+            cpu->flags.overflow = 0;
+            break;
+        case 'r': // ROR
+            cpu->flags.carry = op1 & 0x1;
+            cpu->flags.overflow = 0;
+            break;
+        case 'l': // ROL
+            cpu->flags.carry = (op1 >> 15) & 0x1;
+            cpu->flags.overflow = 0;
+            break;
+        case '*': // MUL
+            cpu->flags.carry = (result >> 16) & 0x1;
+            cpu->flags.overflow = 0;
+            break; 
     }
 }
 
@@ -155,15 +205,11 @@ void execute_instruction(CPU *cpu, uint16_t instruction){
                         uint16_t val2 = cpu->registers[rn];
                         uint16_t result = val1 - val2;
 
-                        cpu->flags.zero = (result == 0);
-                        cpu->flags.negative = (result >> 15) & 0x1;
-                        cpu->flags.carry = (val1 < val2);
+                        update_flags(cpu, result, val1, val2, '-');
 
                         printf("Comparação: R%d (0x%04x) - R%d (0x%04x) = 0x%04x\n",
                         rm, val1, rn, val2, result);
 
-                        printf("Flags: Z=%d N=%d C=%d\n",
-                        cpu->flags.zero, cpu->flags.negative, cpu->flags.carry);
                         break;
                     }
                     default:   // NOP
@@ -187,12 +233,12 @@ void execute_instruction(CPU *cpu, uint16_t instruction){
         case 0x4: // ADD
             printf("ADD R%d, R%d, R%d\n", rd, rm, rn);
             cpu->registers[rd] = cpu->registers[rm] + cpu->registers[rn];
-            cpu->flags.zero = (cpu->registers[rd] == 0);
+            update_flags(cpu, cpu->registers[rd], cpu->registers[rm], cpu->registers[rn], '+');
             break;
         case 0x5: // SUB
             printf("SUB R%d, R%d, R%d\n", rd, rm, rn);
             cpu->registers[rd] = cpu->registers[rm] - cpu->registers[rn];
-            cpu->flags.zero = (cpu->registers[rd] == 0);
+            update_flags(cpu, cpu->registers[rd], cpu->registers[rm], cpu->registers[rn], '-');
             break;
         default:
             printf("Instrução não implementada: 0x%04x\n", instruction);
