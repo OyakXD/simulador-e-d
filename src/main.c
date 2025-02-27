@@ -1,34 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
-#include <stdbool.h>
-
-#define MAX_MEMORY 1024
-#define NUM_REGISTERS 8
-#define MAX_STACK 256
-
-typedef struct {
-  uint16_t registers[NUM_REGISTERS];
-  uint16_t memory[MAX_MEMORY];
-  uint16_t pc;
-  uint16_t stack[MAX_STACK];
-  int16_t sp;
-  int16_t iR;
-
-  // Flags de condição
-  struct {
-    uint8_t zero;
-    uint8_t carry;
-    uint8_t negative;
-    uint8_t overflow;
-  } flags;
-} CPU;
-
-// Validação de registrador
-int is_valid_register(uint16_t reg){
-    return (reg < NUM_REGISTERS); // Retorna 1 se válido (0-7), 0 se inválido
-}
+#include "decode/Decode.h"
 
 // Função que inicia o simulador
 void init_simulator(CPU *cpu) {
@@ -40,7 +13,7 @@ void init_simulator(CPU *cpu) {
     // ------------
 
     cpu->pc = 0;
-    cpu->sp = MAX_MEMORY - 2;
+    cpu->sp = MAX_MEMORY - 2; // Memoria de Von Neumann
     cpu->flags.zero = 0;
     cpu->flags.carry = 0;
     cpu->flags.negative = 0;
@@ -75,183 +48,6 @@ int load_program(CPU *cpu, const char *filename){
     return 1;
 }
 
-// Função para printar o estado da CPU
-void print_simulator_state(CPU *cpu){
-    printf("\nEstado do simulador:\n");
-
-    // Imprimir os registradores
-    for(int i = 0; i < NUM_REGISTERS; i++){
-        printf("R%d: 0x%04x ", i, cpu->registers[i]);
-    }
-
-    // Imprime o contador do programa
-    printf("\nPC: 0x%04x\n", cpu->pc);
-
-    printf("Flags: Z=%d N=%d C=%d, Ov=%d\n",
-    cpu->flags.zero, cpu->flags.negative, cpu->flags.carry, cpu->flags.overflow);
-
-    printf("\nPonteiro da pilha (SP): %d\n", cpu->sp);
-    if(cpu->sp >= 0){
-        printf("Topo da pilha: 0x%04x\n", cpu->stack[cpu->sp]);
-    }
-}
-
-void update_flags(CPU *cpu, uint16_t result, uint16_t op1, uint16_t op2, char operation){
-
-    cpu->flags.zero = (result == 0);
-
-    cpu->flags.negative = (result >> 15) & 0x1;
-
-    switch(operation){
-        case '+': // ADD
-            cpu->flags.carry = (result < op1);
-            cpu->flags.overflow = ((op1 ^ result) & (op2 ^ result)) >> 15;
-            break;
-        case '-': // SUB & CMP
-            cpu->flags.carry = (op1 < op2);
-            cpu->flags.overflow = ((op1 ^ op2) & (op1 ^ result)) >> 15;
-            break;
-        
-        case '&':
-        case '|':
-        case '^':
-        case '~':
-            cpu->flags.carry = 0;
-            cpu->flags.overflow = 0;
-            break;
-        
-        case '<': // SHL
-            cpu->flags.carry = (op1 >> 15) & 0x1;
-            cpu->flags.overflow = 0;
-            break;
-        case '>': // SHR
-            cpu->flags.carry = op1 & 0x1;
-            cpu->flags.overflow = 0;
-            break;
-        case 'r': // ROR
-            cpu->flags.carry = op1 & 0x1;
-            cpu->flags.overflow = 0;
-            break;
-        case 'l': // ROL
-            cpu->flags.carry = (op1 >> 15) & 0x1;
-            cpu->flags.overflow = 0;
-            break;
-        case '*': // MUL
-            cpu->flags.carry = (result >> 16) & 0x1;
-            cpu->flags.overflow = 0;
-            break; 
-    }
-}
-
-// Função de decodificação de instruções
-void execute_instruction(CPU *cpu, uint16_t instruction){
-
-    uint16_t opcode = (instruction >> 12) & 0xF; // Bits 15-12
-
-    printf("Instrução recebida: 0x%04x\n", instruction);
-
-    uint16_t rd = (instruction >> 8) & 0x7; // Bits 10-8 (0-7)
-    uint16_t rm = (instruction >> 5) & 0x7; // Bits 7-5 (0-7)
-    uint16_t rn = (instruction >> 2) & 0x7; // Bits 4-2 (0-7)
-    
-    bool use_immediate = (instruction >> 11) & 0x1;
- 
-    switch(opcode) {
-        case 0x0000:
-            if(use_immediate) {
-                int16_t immediate = ((int16_t) (instruction << 5)) >> 7;
-                switch(instruction & 0x3) {
-                    case 0x0: // JMP
-                        printf("JMP #%d\n", immediate);
-                        cpu->pc += immediate;
-                        break;
-                    case 0x1: // JEQ
-                        printf("JEQ #%d\n", immediate);
-                        if(cpu->flags.zero) cpu->pc += immediate;
-                        break;
-                    case 0x2: // JLT
-                        printf("JLT #%d\n", immediate);
-                        if(cpu->flags.carry && !cpu->flags.zero) cpu->pc += immediate;
-                        break;
-                    default:   // JGT
-                        printf("JGT #%d\n", immediate);
-                        if(!cpu->flags.carry && !cpu->flags.zero) cpu->pc += immediate;
-                        break;
-                }
-            }
-            else {
-                switch(instruction & 0x3) {
-                    case 0x1: // PUSH
-                        printf("PUSH R%d\n", rn);
-                        if(is_valid_register(rn)){
-                            if(cpu->sp >= MAX_STACK) {
-                                cpu->stack[cpu->sp--] = cpu->registers[rn];
-                            }
-                        }
-                        break;
-
-                    case 0x2: // POP
-                        printf("POP R%d\n", rd);
-                        if(is_valid_register(rd)){
-                            if(cpu->sp >= 0){
-                                cpu->registers[rd] = cpu->stack[++cpu->sp];
-                            }
-                        }
-                        break;
-                    case 0x3:{
-                        printf("CMP R%d, R%d\n", rm, rn);
-                        
-                        uint16_t val1 = cpu->registers[rm];
-                        uint16_t val2 = cpu->registers[rn];
-                        uint16_t result = val1 - val2;
-
-                        update_flags(cpu, result, val1, val2, '-');
-
-                        printf("Comparação: R%d (0x%04x) - R%d (0x%04x) = 0x%04x\n",
-                        rm, val1, rn, val2, result);
-
-                        break;
-                    }
-                    default:   // NOP
-                        printf("NOP\n");
-                        print_simulator_state(cpu);
-                        break;
-                }
-            }
-            break;
-            
-        case 0x1: // MOV
-            if(use_immediate) { // Se for MOV imediato
-                uint16_t immediate = instruction & 0xFF;
-                printf("MOV R%d, #%d\n", rd, immediate);
-                cpu->registers[rd] = immediate;
-            } else {
-                printf("MOV R%d, R%d\n", rd, rm);
-                cpu->registers[rd] = cpu->registers[rm];
-            }
-            break;
-        case 0x4: // ADD
-            printf("ADD R%d, R%d, R%d\n", rd, rm, rn);
-            cpu->registers[rd] = cpu->registers[rm] + cpu->registers[rn];
-            update_flags(cpu, cpu->registers[rd], cpu->registers[rm], cpu->registers[rn], '+');
-            break;
-        case 0x5: // SUB
-            printf("SUB R%d, R%d, R%d\n", rd, rm, rn);
-            cpu->registers[rd] = cpu->registers[rm] - cpu->registers[rn];
-            update_flags(cpu, cpu->registers[rd], cpu->registers[rm], cpu->registers[rn], '-');
-            break;
-        default:
-            printf("Instrução não implementada: 0x%04x\n", instruction);
-            break;
-    }
-
-    if(!is_valid_register(rd) || !is_valid_register(rm) || !is_valid_register(rn)){
-        printf("Erro: Registrador inválido na instrução 0x%04x\n", instruction);
-        return;
-    }
-}
-
-
 // Função para buscar e decodificar e executar
 void run_program(CPU *cpu){
     while(cpu->pc < MAX_MEMORY && cpu->memory[cpu->pc / 2] != 0xFFFF){
@@ -260,6 +56,7 @@ void run_program(CPU *cpu){
         cpu->pc += 2;
         printf("NEXT: 0x%04X\n", cpu->memory[cpu->pc / 2]);
     }
+    print_simulator_state(cpu);
 }
 
 int main() {
