@@ -112,30 +112,39 @@ void execute_instruction(CPU *cpu, uint16_t instruction){
             break;
         case 0x6: // MULT
             cpu->registers[rd] = cpu->registers[rm] * cpu->registers[rn];
+            update_flags(cpu, cpu->registers[rd], cpu->registers[rm], cpu->registers[rn], '*');
             break;
         case 0x7: // AND
             cpu->registers[rd] = cpu->registers[rm] & cpu->registers[rn];
+            update_flags(cpu, cpu->registers[rd], cpu->registers[rm], cpu->registers[rn], '&');
             break;
         case 0x8: // ORR
             cpu->registers[rd] = cpu->registers[rm] | cpu->registers[rn];
+            update_flags(cpu, cpu->registers[rd], cpu->registers[rm], cpu->registers[rn], '|');
             break;
         case 0x9: // NOT
             cpu->registers[rd] = ~cpu->registers[rm];
+            update_flags(cpu, cpu->registers[rd], cpu->registers[rm], 0, '~');
             break;
         case 0xA: // XOR
             cpu->registers[rd] = cpu->registers[rm] ^ cpu->registers[rn];
+            update_flags(cpu, cpu->registers[rd], cpu->registers[rm], cpu->registers[rn], '^');
             break;
         case 0xB: // SHR
             cpu->registers[rd] = cpu->registers[rm] >> 1;
+            update_flags(cpu, cpu->registers[rd], cpu->registers[rm], 0, '>');
             break;
         case 0xC: // SHL
             cpu->registers[rd] = cpu->registers[rm] << 1;
+            update_flags(cpu, cpu->registers[rd], cpu->registers[rm], 0, '<');
             break;
         case 0xD: // ROR
             cpu->registers[rd] = (cpu->registers[rm] >> 1) | (cpu->registers[rm] << 15);
+            update_flags(cpu, cpu->registers[rd], cpu->registers[rm], 0, 'r');
             break;
         case 0xE: // ROL
             cpu->registers[rd] = (cpu->registers[rm] << 1) | (cpu->registers[rm] >> 15);
+            update_flags(cpu, cpu->registers[rd], cpu->registers[rm], 0, 'l');
             break;
         default:
             printf("Instrução não implementada: 0x%04x\n", instruction);
@@ -156,12 +165,12 @@ void update_flags(CPU *cpu, uint16_t result, uint16_t op1, uint16_t op2, char op
 
     switch(operation){
         case '+': // ADD
-            cpu->flags.carry = (result < op1);
-            cpu->flags.overflow = ((op1 ^ result) & (op2 ^ result)) >> 15;
+            cpu->flags.carry = ((uint32_t)op1 + (uint32_t)op2) > 0xFFFF;
+            cpu->flags.overflow = ((op1 ^ op2) & (op1 ^ result) >> 15) & 0x1;
             break;
         case '-': // SUB & CMP
-            cpu->flags.carry = (op1 < op2);
-            cpu->flags.overflow = ((op1 ^ op2) & (op1 ^ result)) >> 15;
+            cpu->flags.carry = (uint16_t)op1 >= (uint16_t)op2 ? 1 : 0;
+            cpu->flags.overflow = ((op1 ^ op2) & (op1 ^ result) >> 15) & 0x1;
             break;
         
         case '&': 
@@ -189,8 +198,9 @@ void update_flags(CPU *cpu, uint16_t result, uint16_t op1, uint16_t op2, char op
             cpu->flags.overflow = 0;
             break;
         case '*': // MUL
-            cpu->flags.carry = (result >> 16) & 0x1;
-            cpu->flags.overflow = 0;
+            uint32_t mul_result = (uint32_t)op1 * (uint32_t)op2;
+            cpu->flags.carry = (mul_result > 0xFFFF);
+            cpu->flags.overflow = (mul_result > 0xFFFF);
             break; 
     }
 }
